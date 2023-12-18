@@ -9,11 +9,17 @@ function App() {
   const [peer, setPeer] = useState<Peer | null>(null);
   const [counterpartId, setCounterpartId] = useState("");
   const [connectedToCounterpart, setConnectedToCounterpart] = useState(false);
-  const [counterpartConnection, setCounterpartConnection] = useState<DataConnection | null>(null);
+  const [counterpartConnection, setCounterpartConnection] =
+    useState<DataConnection | null>(null);
+    const [messageToSend, setMessageToSend] = useState('');
+    const [receivedMessage, setReceivedMessage] = useState('');
 
+
+    // Server Connection stuff
   const handleServerConnect = () => {
     if (peer) {
       peer.destroy();
+      console.log("Destroying previous peer object.")
     }
     const newPeer = new Peer(undefined, {
       host: host,
@@ -21,10 +27,10 @@ function App() {
       path: path,
       secure: false,
     });
-
     newPeer.on("open", () => {
       setPeer(newPeer);
       hasConnectedToServer(true);
+      console.log("Has connected to server.")
     });
   };
 
@@ -32,8 +38,10 @@ function App() {
     peer?.destroy();
     setPeer(null);
     hasConnectedToServer(false);
+    console.log("Has disconnected to server.")
   };
 
+  // Counterpart Connection stuff
 
   const handleConnectToCounterpart = () => {
     if (peer) {
@@ -42,20 +50,35 @@ function App() {
       }
 
       const conn = peer.connect(counterpartId);
-      
+
       if (!conn) {
-        console.log("Failed to connect to counterpart!")
+        console.log("Failed to connect to counterpart!");
         return;
-      
       }
       setCounterpartConnection(conn);
       counterpartConnection?.on("open", () => {
         counterpartConnection.send("hi!");
       });
-      
+
       setConnectedToCounterpart(true);
     }
+  };
+
+  // Message stuff
+  const handleSendMessage = () => {
+    if (counterpartConnection && messageToSend) {
+      counterpartConnection.send(messageToSend);
+      setMessageToSend('');
+    }
   }
+
+  useEffect(() => {
+    if (counterpartConnection) {
+      counterpartConnection.on('data', (data) => {
+        setReceivedMessage(data);
+      });
+    }
+  }, [counterpartConnection]);
 
   return (
     <>
@@ -91,24 +114,40 @@ function App() {
       )}
       {connectedToServer && (
         <>
-          <button onClick={handleServerDisconnect}>Disconnect from Server</button>
+          <button onClick={handleServerDisconnect}>
+            Disconnect from Server
+          </button>
         </>
       )}
 
       <hr />
       {connectedToServer && (
         <>
-      <input
-        type="text"
-        value={counterpartId}
-        onChange={(e) => setCounterpartId(e.target.value)}
-        placeholder="Input counterpart's ID!"
-        />
-      <button onClick={handleConnectToCounterpart}>Connect</button>
+          <input
+            type="text"
+            value={counterpartId}
+            onChange={(e) => setCounterpartId(e.target.value)}
+            placeholder="Input counterpart's ID!"
+          />
+          <button onClick={handleConnectToCounterpart}>Connect</button>
         </>
-      
       )}
-      </>
+
+      {connectedToCounterpart && (
+        <>
+          <h3>Send Message</h3>
+          <input
+            type="text"
+            value={messageToSend}
+            onChange={(e) => setMessageToSend(e.target.value)}
+            placeholder="Message to send"
+          />
+          <button onClick={handleSendMessage}>Send</button>
+          <h3>Received Message</h3>
+          <textarea disabled value={receivedMessage} />
+        </>
+      )}
+    </>
   );
 }
 
