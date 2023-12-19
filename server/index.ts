@@ -1,30 +1,24 @@
-const express = require("express");
-const { ExpressPeerServer } = require("peer");
+const express = require('express');
+const { ExpressPeerServer } = require('peer');
 
 const app = express();
 
-const clients = {};
-
-app.get("/", (_req, res, _next) => {
-    console.log(clients)
-    res.send("Hello world!")
+app.get('/', (_req, res, _next) => {
+  res.send('Hello and welcome to this server!');
 });
 
 const server = app.listen(9000);
 
 const peerServer = ExpressPeerServer(server, {
-	path: "/",
+  path: '/'
 });
 
-app.use("/peerjs", peerServer);
-
+app.use('/peerjs', peerServer);
 
 peerServer.on('connection', (client) => {
-    console.log('client connected', client)
-    //clients[''] = client
- });
+  console.log('client connected', client.id);
+});
 
- peerServer.on('disconnect', (client) => {
-    console.log('client disconnected', client)
-    //clients[''] = client
-  });
+peerServer.on('disconnect', (client) => {
+  console.log('client disconnected', client.id);
+});

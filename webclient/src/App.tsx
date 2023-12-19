@@ -1,84 +1,123 @@
-import { useState, useEffect } from "react";
-import { Peer, DataConnection } from "peerjs";
+import { useState, useEffect } from 'react';
+import { Peer, DataConnection } from 'peerjs';
 
 function App() {
   const [connectedToServer, hasConnectedToServer] = useState(false);
-  const [host, setHost] = useState("localhost");
-  const [port, setPort] = useState("9000");
-  const [path, setPath] = useState("/peerjs");
+  const [host, setHost] = useState('localhost');
+  const [port, setPort] = useState('9000');
+  const [path, setPath] = useState('/peerjs');
   const [peer, setPeer] = useState<Peer | null>(null);
-  const [counterpartId, setCounterpartId] = useState("");
+  const [counterpartId, setCounterpartId] = useState('');
   const [connectedToCounterpart, setConnectedToCounterpart] = useState(false);
   const [counterpartConnection, setCounterpartConnection] =
     useState<DataConnection | null>(null);
-    const [messageToSend, setMessageToSend] = useState('');
-    const [receivedMessage, setReceivedMessage] = useState('');
+  const [messageToSend, setMessageToSend] = useState('');
+  const [receivedMessage, setReceivedMessage] = useState('');
 
-
-    // Server Connection stuff
+  // Server Connection stuff
   const handleServerConnect = () => {
     if (peer) {
       peer.destroy();
-      console.log("Destroying previous peer object.")
+      console.log('Destroying previous peer object.');
     }
-    const newPeer = new Peer(undefined, {
-      host: host,
-      port: Number(port),
-      path: path,
-      secure: false,
-    });
-    newPeer.on("open", () => {
+
+    let newPeer: Peer;
+    if (host === '' && port === '' && path === '') {
+      console.log('Defaulting to PeerJS cloud server!');
+      newPeer = new Peer(undefined, {});
+    } else {
+      newPeer = new Peer(undefined, {
+        host: host,
+        port: Number(port),
+        path: path,
+        secure: false
+      });
+    }
+    newPeer.on('open', () => {
       setPeer(newPeer);
       hasConnectedToServer(true);
-      console.log("Has connected to server.")
+      console.log('Has connected to server.');
     });
   };
+
+  // Set up to be able to receive connections and messages from counterpart
+  useEffect(() => {
+    if (peer) {
+      peer.on('connection', (conn) => {
+        console.log('Received connection from counterpart!');
+        conn.on('data', (data) => {
+          console.log('Received data from counterpart: ', data);
+          setReceivedMessage(data as string);
+        });
+      });
+    }
+  }, [peer]);
 
   const handleServerDisconnect = () => {
     peer?.destroy();
     setPeer(null);
     hasConnectedToServer(false);
-    console.log("Has disconnected to server.")
+    console.log('Has disconnected to server.');
   };
 
   // Counterpart Connection stuff
 
   const handleConnectToCounterpart = () => {
+    console.log('Entered handle func for connecting to counterpart...');
     if (peer) {
+      console.log('Peer exists!');
       if (counterpartConnection) {
         counterpartConnection.close();
+        setCounterpartConnection(null);
+        setConnectedToCounterpart(false);
+        console.log('Closed previous connection to counterpart.');
       }
 
       const conn = peer.connect(counterpartId);
-
+      console.log('Connecting to counterpart...');
       if (!conn) {
-        console.log("Failed to connect to counterpart!");
+        console.log('Failed to connect to counterpart!');
         return;
       }
-      setCounterpartConnection(conn);
-      counterpartConnection?.on("open", () => {
-        counterpartConnection.send("hi!");
+
+      conn.on('error', (err) => {
+        console.error('Error occurred:', err);
+        setConnectedToCounterpart(false);
       });
 
+      setCounterpartConnection(conn);
       setConnectedToCounterpart(true);
     }
   };
 
+  useEffect(() => {
+    if (counterpartConnection) {
+      counterpartConnection.on('open', () => {
+        console.log('Tentatively connected to counterpart!');
+
+        counterpartConnection.send(
+          'Initial greeting from peer id: ' + peer?.id
+        );
+        console.log('Sent intial greeting!');
+      });
+
+      counterpartConnection.on('close', () => {
+        console.log('Connection to counterpart closed!');
+        setConnectedToCounterpart(false);
+      });
+    }
+  }, [counterpartConnection, peer?.id]);
+
   // Message stuff
   const handleSendMessage = () => {
     if (counterpartConnection && messageToSend) {
-      counterpartConnection.send(messageToSend);
-      setMessageToSend('');
+      console.log('Sending message to counterpart: ', messageToSend);
+      if (counterpartConnection.open) {
+        counterpartConnection.send(messageToSend);
+        setMessageToSend('');
+      }
     }
-  }
-
-  useEffect(() => {
-    if (counterpartConnection) {
-      counterpartConnection.on('data', (data) => {
-        setReceivedMessage(data);
-      });
-    }
-  }, [counterpartConnection]);
+  };
 
   return (
     <>
@@ -87,13 +126,13 @@ function App() {
       <input
         type="text"
         value={host}
-        onChange={(e) => setHost(e.target.value)}
+        onChange={(e) => setHost(e.target.value.trim())}
         placeholder="Host"
       />
       <input
         type="text"
         value={port}
-        onChange={(e) => setPort(e.target.value)}
+        onChange={(e) => setPort(e.target.value.trim())}
         placeholder="Port"
       />
       <input
@@ -126,7 +165,7 @@ function App() {
           <input
             type="text"
             value={counterpartId}
-            onChange={(e) => setCounterpartId(e.target.value)}
+            onChange={(e) => setCounterpartId(e.target.value.trim())}
             placeholder="Input counterpart's ID!"
           />
           <button onClick={handleConnectToCounterpart}>Connect</button>
