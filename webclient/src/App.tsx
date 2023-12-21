@@ -24,9 +24,9 @@ function App() {
     let newPeer: Peer;
     if (host === '' && port === '' && path === '') {
       console.log('Defaulting to PeerJS cloud server!');
-      newPeer = new Peer(undefined, {});
+      newPeer = new Peer('', {});
     } else {
-      newPeer = new Peer(undefined, {
+      newPeer = new Peer('', {
         host: host,
         port: Number(port),
         path: path,
