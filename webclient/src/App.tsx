@@ -7,6 +7,9 @@ function App() {
   const [port, setPort] = useState('9000');
   const [path, setPath] = useState('/peerjs');
   const [peer, setPeer] = useState<Peer | null>(null);
+  const [useTurn, setUseTurn] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [counterpartId, setCounterpartId] = useState('');
   const [connectedToCounterpart, setConnectedToCounterpart] = useState(false);
   const [counterpartConnection, setCounterpartConnection] =
@@ -16,22 +19,55 @@ function App() {
 
   // Server Connection stuff
   const handleServerConnect = () => {
+    const turnConfig = {
+      config: {
+        iceServers: [
+          {
+            urls: 'stun:stun.relay.metered.ca:80'
+          },
+          {
+            urls: 'turn:standard.relay.metered.ca:80',
+            username: username,
+            credential: password
+          },
+          {
+            urls: 'turn:standard.relay.metered.ca:80?transport=tcp',
+            username: username,
+            credential: password
+          },
+          {
+            urls: 'turn:standard.relay.metered.ca:443',
+            username: username,
+            credential: password
+          },
+          {
+            urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+            username: username,
+            credential: password
+          }
+        ]
+      }
+    };
+
     if (peer) {
       peer.destroy();
       console.log('Destroying previous peer object.');
     }
-
     let newPeer: Peer;
     if (host === '' && port === '' && path === '') {
       console.log('Defaulting to PeerJS cloud server!');
-      newPeer = new Peer('', {});
+      newPeer = useTurn ? new Peer('', turnConfig) : new Peer('', {});
+      console.log(useTurn);
     } else {
-      newPeer = new Peer('', {
+      const options = {
         host: host,
         port: Number(port),
         path: path,
         secure: false
-      });
+      };
+      newPeer = useTurn
+        ? new Peer('', Object.assign({}, options, turnConfig))
+        : new Peer('', options);
     }
     newPeer.on('open', () => {
       setPeer(newPeer);
@@ -143,8 +179,36 @@ function App() {
       />
       <button onClick={handleServerConnect}>Connect</button>
 
-      <hr />
+      <h4>Use TURN Server? (Currently hardcoded to use Metered Relay) </h4>
+      <label className="switch">
+        <input
+          type="checkbox"
+          checked={useTurn}
+          onChange={(e) => setUseTurn(e.target.checked)}
+        />
+      </label>
 
+      {useTurn && (
+        <div>
+          <label htmlFor="username">Username:</label>
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <label htmlFor="password">Credential:</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+      )}
+
+      <hr />
       {connectedToServer && (
         <>
           <h3>You connected to server!</h3>
